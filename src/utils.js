@@ -53,6 +53,7 @@ export async function applyTesseract (cb, base64Img, lan = 'fra') {
 
     const { data: { text } } = await worker.recognize(base64Img);
     cb(text);
+    console.log(text);
 
     await worker.terminate();
 }

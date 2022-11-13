@@ -1,6 +1,6 @@
 import './App.css';
 import React from "react";
-import { getContoursFromBase64, readImgFromBase64 } from './utils';
+import { applyTesseract, getContoursFromBase64, readImgFromBase64 } from './utils';
 
 const IMG_WIDTH = 300
 
@@ -24,7 +24,13 @@ function App() {
     reader.readAsDataURL(file);
     reader.onload = (e) => {
       setInputImg(e.target.result);
-      setContourImgs(getContoursFromBase64(e.target.result, IMG_WIDTH))
+      setContourImgs(getContoursFromBase64(e.target.result, IMG_WIDTH));
+      if (contourImgs?.[1]?.length > 0) {
+        setText('Loading Tesseract OCR...');
+        const base64Img = contourImgs[1][0];
+        console.log('base64Img', base64Img);
+        applyTesseract(setText, base64Img);
+      }
     }
 
     reader.onerror = (error) => {
@@ -40,10 +46,17 @@ function App() {
       {
         warning && <p style={{ color: 'red' }}>{warning}</p>
       }
+      {
+        text && <>
+          <br></br>
+          <h3>Detected Text</h3>
+          <p>{text}</p>
+        </>
+      }
       <br></br>
       {
         inputImg && <>
-          <p>Input image (+ preprocess steps)</p>
+          <h3>Input image (+ preprocess steps)</h3>
           <img style={{ width: IMG_WIDTH + 'px' }} src={inputImg} alt="input" />
         </>
       }
@@ -55,16 +68,13 @@ function App() {
       <br></br>
       {
         contourImgs?.[1]?.length > 0 ? <>
-          <p>Found contours</p>
+          <h3>Found contours</h3>
           {
             contourImgs?.[1]?.map?.((img, i) => (
               <img style={{ maxWidth: IMG_WIDTH + 'px' }} key={i} src={img} alt={"contour"+(i)} />
             ))
           }
-        </> : <p>No contour detected</p>
-      }
-      {
-        text && <p>{text}</p>
+        </> : <h3>No contour detected</h3>
       }
     </div>
   );
