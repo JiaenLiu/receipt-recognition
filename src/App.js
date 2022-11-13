@@ -1,6 +1,8 @@
 import './App.css';
 import React from "react";
-import cv from "@techstark/opencv-js";
+import { getContoursFromBase64, readImgFromBase64 } from './utils';
+
+const IMG_WIDTH = 300
 
 function App() {
   const [text, setText] = React.useState('');
@@ -19,18 +21,16 @@ function App() {
     setWarning('');
 
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = e.target.result
-      setInputImg(img);
-      try {
-        const img = cv.imread(img);
-        setContourImgs(getContours(img))
-        img.delete();
-      } catch (error) {
-        console.log(error);
-      }
-    }
     reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      setInputImg(e.target.result);
+      setContourImgs(getContoursFromBase64(e.target.result, IMG_WIDTH))
+    }
+
+    reader.onerror = (error) => {
+      setWarning(error);
+      console.log(error);
+    }
   }
 
   return (
@@ -40,13 +40,28 @@ function App() {
       {
         warning && <p style={{ color: 'red' }}>{warning}</p>
       }
+      <br></br>
       {
-        inputImg && <img style={{ width: '200px' }} alt="input" />
+        inputImg && <>
+          <p>Input image (+ preprocess steps)</p>
+          <img style={{ width: IMG_WIDTH + 'px' }} src={inputImg} alt="input" />
+        </>
       }
       {
-        contourImgs.map((img, i) => (
-          <img key={i} src={img} alt={"contour"+i} />
+        contourImgs?.[0]?.map?.((img, i) => (
+          <img style={{ maxWidth: IMG_WIDTH + 'px' }} key={i} src={img} alt={"step"+(i)} />
         ))
+      }
+      <br></br>
+      {
+        contourImgs?.[1]?.length > 0 ? <>
+          <p>Found contours</p>
+          {
+            contourImgs?.[1]?.map?.((img, i) => (
+              <img style={{ maxWidth: IMG_WIDTH + 'px' }} key={i} src={img} alt={"contour"+(i)} />
+            ))
+          }
+        </> : <p>No contour detected</p>
       }
       {
         text && <p>{text}</p>
