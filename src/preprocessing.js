@@ -13,7 +13,7 @@ export class SortableContour {
   }
 }
 
-export function getContours(img) {
+export function getContours(img, imgBig) {
   const src = img.clone();
 
 

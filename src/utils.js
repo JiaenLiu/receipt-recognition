@@ -20,7 +20,17 @@ export function readImgFromBase64(imgObj, wantedWidth) {
     const imgMat = cv.imread(canvas);
     canvas.remove();
 
-    return imgMat;
+    const canvasBig = document.createElement('canvas');
+    canvasBig.width = imgObj.width;
+    canvasBig.height = imgObj.height;
+
+    const ctxBig = canvasBig.getContext('2d');
+    ctxBig.drawImage(imgObj, 0, 0);
+
+    const imgMatBig = cv.imread(canvasBig);
+    canvasBig.remove();
+
+    return [imgMat, imgMatBig];
 }
 
 export function cvImageDataToBase64 (img) {
@@ -32,9 +42,10 @@ export function cvImageDataToBase64 (img) {
 }
 
 export function getContoursFromBase64(img, wantedWidth) {
-    const imgMat = readImgFromBase64(img, wantedWidth);
-    const contours = getContours(imgMat);
+    const [imgMat, imgMatBig] = readImgFromBase64(img, wantedWidth);
+    const contours = getContours(imgMat, imgMatBig);
     imgMat.delete();
+    imgMatBig.delete();
     return contours;
 }
 
