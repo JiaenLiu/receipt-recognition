@@ -24,7 +24,14 @@ function App() {
     reader.readAsDataURL(file);
     reader.onload = (e) => {
       setInputImg(e.target.result);
-      setContourImgs(getContoursFromBase64(e.target.result, IMG_WIDTH));
+      const imgObj = new Image();
+      imgObj.onload = function() {    
+          setContourImgs(getContoursFromBase64(imgObj, IMG_WIDTH));
+          imgObj.remove();
+      };
+        
+      imgObj.src = e.target.result;
+
       if (contourImgs?.[1]?.length > 0) {
         setText('Loading Tesseract OCR...');
         const base64Img = contourImgs[1][0];

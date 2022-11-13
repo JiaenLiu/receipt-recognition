@@ -7,9 +7,7 @@ function calculateAspectRatioFit(srcWidth, srcHeight, wantedWidth) {
     return { width: srcWidth*ratio, height: srcHeight*ratio };
  }
 
-export function readImgFromBase64(img, wantedWidth) {
-    const imgObj = new Image();
-    imgObj.src = img;
+export function readImgFromBase64(imgObj, wantedWidth) {
     const size = calculateAspectRatioFit(Math.round(imgObj.width), Math.round(imgObj.height), wantedWidth);
 
     const canvas = document.createElement('canvas');
@@ -20,8 +18,6 @@ export function readImgFromBase64(img, wantedWidth) {
     ctx.drawImage(imgObj, 0, 0, size.width, size.height);
 
     const imgMat = cv.imread(canvas);
-
-    imgObj.remove();
     canvas.remove();
 
     return imgMat;
