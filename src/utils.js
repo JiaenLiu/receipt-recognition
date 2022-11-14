@@ -4,7 +4,7 @@ import { getContours } from "./preprocessing";
 
 function calculateAspectRatioFit(srcWidth, srcHeight, wantedWidth) {
     var ratio = wantedWidth / srcWidth;
-    return { width: srcWidth*ratio, height: srcHeight*ratio };
+    return { width: srcWidth*ratio, height: srcHeight*ratio,ratio: ratio };
  }
 
 export function readImgFromBase64(imgObj, wantedWidth) {
@@ -30,7 +30,7 @@ export function readImgFromBase64(imgObj, wantedWidth) {
     const imgMatBig = cv.imread(canvasBig);
     canvasBig.remove();
 
-    return [imgMat, imgMatBig];
+    return [imgMat, imgMatBig, size.ratio];
 }
 
 export function cvImageDataToBase64 (img) {
@@ -42,10 +42,11 @@ export function cvImageDataToBase64 (img) {
 }
 
 export function getContoursFromBase64(img, wantedWidth) {
-    const [imgMat, imgMatBig] = readImgFromBase64(img, wantedWidth);
-    const contours = getContours(imgMat, imgMatBig);
+    const [imgMat, imgMatBig, ratio] = readImgFromBase64(img, wantedWidth);
+    const contours = getContours(imgMat, imgMatBig, ratio);
     imgMat.delete();
     imgMatBig.delete();
+    // ratio.delete();
     return contours;
 }
 

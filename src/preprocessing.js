@@ -13,7 +13,15 @@ export class SortableContour {
   }
 }
 
-export function getContours(img, imgBig) {
+/*
+ *@param {cv.Mat} img - input image with reduced size
+ *@param {cv.Mat} imgBig - input image (original size)
+ *@param {number} ratio - ratio between original size and reduced size 
+ */
+export function getContours(img, imgBig, ratio) {
+  // TODO: use imgBig to get the original image size
+  // scale the image back to the original size
+  // Reject the invalid receipt
   const src = img.clone();
 
 
@@ -74,6 +82,8 @@ export function getContours(img, imgBig) {
     return b.areaSize - a.areaSize;
   }).filter((contour) => {
     // Only keep large contours
+    // the area of the contour is the number of pixels
+    // the maxwithd of the image is 300px
     if (contour.areaSize < 200) {
       return false;
     }
@@ -131,7 +141,17 @@ export function getContours(img, imgBig) {
     let tr = cornerArray[0].corner.x > cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
     let bl = cornerArray[2].corner.x < cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
     let br = cornerArray[2].corner.x > cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
-  
+    
+    // Transform the image back to the original perspective
+    tl.corner.x = tl.corner.x / ratio;
+    tl.corner.y = tl.corner.y / ratio;
+    tr.corner.x = tr.corner.x / ratio;
+    tr.corner.y = tr.corner.y / ratio;
+    br.corner.x = br.corner.x / ratio;
+    br.corner.y = br.corner.y / ratio;
+    bl.corner.x = bl.corner.x / ratio;
+    bl.corner.y = bl.corner.y / ratio;
+
     //Calculate the max width/height
     let widthBottom = Math.hypot(br.corner.x - bl.corner.x, br.corner.y - bl.corner.y);
     let widthTop = Math.hypot(tr.corner.x - tl.corner.x, tr.corner.y - tl.corner.y);
@@ -146,7 +166,7 @@ export function getContours(img, imgBig) {
     let srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.corner.x, tl.corner.y, tr.corner.x, tr.corner.y, br.corner.x, br.corner.y, bl.corner.x, bl.corner.y]);
     let dsize = new cv.Size(theWidth, theHeight);
     let M2 = cv.getPerspectiveTransform(srcCoords, finalDestCoords)
-    cv.warpPerspective(img, dst, M2, dsize, cv.INTER_LINEAR, cv.BORDER_REPLICATE, new cv.Scalar());
+    cv.warpPerspective(imgBig, dst, M2, dsize, cv.INTER_LINEAR, cv.BORDER_REPLICATE, new cv.Scalar());
 
     // Return the transformed image in base64
     return cvImageDataToBase64(dst);

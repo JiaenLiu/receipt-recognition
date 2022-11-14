@@ -13,6 +13,7 @@ function App() {
   const onChangeFile = (e) => {
     const file = e.target.files?.[0];
 
+    // Check if file is in the supported format
     const acceptedImageTypes = ['image/gif', 'image/jpeg', 'image/png'];
     if (!file || !acceptedImageTypes.includes(file['type'])) {
       setWarning('Please upload a valid image file!');
@@ -32,7 +33,13 @@ function App() {
         
       imgObj.src = e.target.result;
 
+      console.log(contourImgs)
+
+      console.log(contourImgs?.[1]?.length);
+      console.log(typeof contourImgs?.[1]?.length);
+
       if (contourImgs?.[1]?.length > 0) {
+        console.log("executing tesseract");
         setText('Loading Tesseract OCR...');
         const base64Img = contourImgs[1][0];
         console.log('base64Img', base64Img);
