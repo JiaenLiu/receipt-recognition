@@ -28,7 +28,7 @@ function App() {
       const imgObj = new Image();
       imgObj.onload = function() {    
           setContourImgs(getContoursFromBase64(imgObj, IMG_WIDTH));
-          imgObj.remove();
+          // imgObj.remove();
       };
         
       imgObj.src = e.target.result;
@@ -40,7 +40,7 @@ function App() {
       console.log(typeof contourImgs?.[1]?.length);
 
       if (contourImgs?.[1]?.length > 0) {
-        console.log("executing tesseract");
+        // console.log("executing tesseract");
         setText('Loading Tesseract OCR...');
         const base64Img = contourImgs[1][0];
         console.log('base64Img', base64Img);

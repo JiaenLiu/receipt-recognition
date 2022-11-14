@@ -22,6 +22,7 @@ export function getContours(img, imgBig, ratio) {
   // TODO: use imgBig to get the original image size
   // scale the image back to the original size
   // Reject the invalid receipt
+  // TODO: add the detection of the receipt when it is not countinuous
   const src = img.clone();
 
 
@@ -54,6 +55,7 @@ export function getContours(img, imgBig, ratio) {
       cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
   cv.dilate(src, src, cv.Mat.ones(9, 9, cv.CV_8U), anchor, 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
 
+  
   // Enhance the contrast of the image
   // cv.convertScaleAbs(src, src, 1.9, 0);
   
@@ -91,7 +93,10 @@ export function getContours(img, imgBig, ratio) {
     // Only keep contours that have 4 corners
     contour.approx = new cv.Mat();
     cv.approxPolyDP(contour.contour, contour.approx, 0.02 * contour.perimiterSize, true);
+    // if the contour does not have 4 corners, it is not a rectangle
+    // we can not just apply the perspective transform based on the these cases
     if (contour.approx.rows > 3 && contour.approx.rows < 10) {
+      // extend the contour to a rectangle with black color
       cv.drawContours(src, contours, contour.idx, new cv.Scalar(0, 0, 255, 255), 4);
       return true;
     }
@@ -101,7 +106,7 @@ export function getContours(img, imgBig, ratio) {
     // TODO: incorrect? needs refactoring
 
     // Get contour corners
-    // let corners = [];
+    // let corners = []; the length of this array is not euqal to 4
     // for (let i = 0; i < contour.approx.rows; ++i) {
     //   let point = new cv.Point(...contour.approx.data32S.slice(i * 2, i * 2 + 2));
     //   corners.push(point);
@@ -125,6 +130,9 @@ export function getContours(img, imgBig, ratio) {
     // cv.warpPerspective(img, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
     
     // FIXME: this is ugly but the above code is broken
+    // I need a better way to get the corners of the contour to apply the perspective transform
+    // It can work when the corners are not equal to 4.
+    // Following code is working when the detected contour is a rectangle aka. 4 corners.
 
     let corner1 = new cv.Point(contour.approx.data32S[0], contour.approx.data32S[1]);
     let corner2 = new cv.Point(contour.approx.data32S[2], contour.approx.data32S[3]);
@@ -137,6 +145,8 @@ export function getContours(img, imgBig, ratio) {
     cornerArray.sort((item1, item2) => { return (item1.corner.y < item2.corner.y) ? -1 : (item1.corner.y > item2.corner.y) ? 1 : 0; }).slice(0, 5);
     
     // Transform the image back to the original perspective
+    // TODO: Add a Homography to the image
+    // TODO: add frame for edge detection when picture is cut
     for (let i = 0; i < cornerArray.length; i++) {
       cornerArray[i].corner.x = cornerArray[i].corner.x / ratio;
       cornerArray[i].corner.y = cornerArray[i].corner.y / ratio;
@@ -151,7 +161,6 @@ export function getContours(img, imgBig, ratio) {
     //Calculate the max width/height
     let widthBottom = Math.hypot(br.corner.x - bl.corner.x, br.corner.y - bl.corner.y);
     let widthTop = Math.hypot(tr.corner.x - tl.corner.x, tr.corner.y - tl.corner.y);
-    // let theWidth = (widthBottom > widthTop) ? widthBottom : widthTop;
     let heightRight = Math.hypot(tr.corner.x - br.corner.x, tr.corner.y - br.corner.y);
     let heightLeft = Math.hypot(tl.corner.x - bl.corner.x, tr.corner.y - bl.corner.y);
     let theWidth = Math.max(widthBottom, widthTop);
@@ -163,6 +172,9 @@ export function getContours(img, imgBig, ratio) {
     let dsize = new cv.Size(theWidth, theHeight);
     let M2 = cv.getPerspectiveTransform(srcCoords, finalDestCoords)
     cv.warpPerspective(imgBig, dst, M2, dsize, cv.INTER_LINEAR, cv.BORDER_REPLICATE, new cv.Scalar());
+    // obtain black and white scanner effect by thresholding
+    cv.cvtColor(dst, dst, cv.COLOR_RGBA2GRAY, 0);
+    cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
 
     // Return the transformed image in base64
     return cvImageDataToBase64(dst);
