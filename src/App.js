@@ -33,7 +33,8 @@ function App() {
         
       imgObj.src = e.target.result;
 
-      console.log(contourImgs)
+      console.log(contourImgs);
+      console.log(typeof contourImgs);
 
       console.log(contourImgs?.[1]?.length);
       console.log(typeof contourImgs?.[1]?.length);

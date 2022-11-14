@@ -83,7 +83,7 @@ export function getContours(img, imgBig, ratio) {
   }).filter((contour) => {
     // Only keep large contours
     // the area of the contour is the number of pixels
-    // the maxwithd of the image is 300px
+    // the max withd of the image is 300px
     if (contour.areaSize < 200) {
       return false;
     }
@@ -135,22 +135,18 @@ export function getContours(img, imgBig, ratio) {
     let cornerArray = [{ corner: corner1 }, { corner: corner2 }, { corner: corner3 }, { corner: corner4 }];
     //Sort by Y position (to get top-down)
     cornerArray.sort((item1, item2) => { return (item1.corner.y < item2.corner.y) ? -1 : (item1.corner.y > item2.corner.y) ? 1 : 0; }).slice(0, 5);
-  
+    
+    // Transform the image back to the original perspective
+    for (let i = 0; i < cornerArray.length; i++) {
+      cornerArray[i].corner.x = cornerArray[i].corner.x / ratio;
+      cornerArray[i].corner.y = cornerArray[i].corner.y / ratio;
+    }
+
     //Determine left/right based on x position of top and bottom 2
     let tl = cornerArray[0].corner.x < cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
     let tr = cornerArray[0].corner.x > cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
     let bl = cornerArray[2].corner.x < cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
     let br = cornerArray[2].corner.x > cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
-    
-    // Transform the image back to the original perspective
-    tl.corner.x = tl.corner.x / ratio;
-    tl.corner.y = tl.corner.y / ratio;
-    tr.corner.x = tr.corner.x / ratio;
-    tr.corner.y = tr.corner.y / ratio;
-    br.corner.x = br.corner.x / ratio;
-    br.corner.y = br.corner.y / ratio;
-    bl.corner.x = bl.corner.x / ratio;
-    bl.corner.y = bl.corner.y / ratio;
 
     //Calculate the max width/height
     let widthBottom = Math.hypot(br.corner.x - bl.corner.x, br.corner.y - bl.corner.y);
