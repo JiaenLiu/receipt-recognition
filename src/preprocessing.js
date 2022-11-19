@@ -23,8 +23,18 @@ export function getContours(img, imgBig, ratio) {
   // scale the image back to the original size
   // Reject the invalid receipt
   // TODO: add the detection of the receipt when it is not countinuous
-  const src = img.clone();
+  let src = img.clone();
 
+  // Convert to grayscale
+  cv.cvtColor(src, src, cv.COLOR_RGB2GRAY, 0);
+
+  let s = new cv.Scalar(0, 0, 0, 100);
+  let dst = new cv.Mat();
+  const size = 15;
+  cv.copyMakeBorder(src, dst, size, size, size, size, cv.BORDER_CONSTANT, s);
+  src = dst.clone();
+
+  const step1 = src.clone();
 
   // Apply blur
   const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
@@ -33,21 +43,8 @@ export function getContours(img, imgBig, ratio) {
     cv.medianBlur(src, src, 5);
   }
 
-  const step1 = src.clone();
-
-  cv.erode(src, src, kernel, new Point(-1, -1), 1);
-  cv.dilate(src, src, kernel, new Point(-1, -1), 2);
-  // cv.medianBlur(src, src, 5);
-
   const step2 = src.clone();
-
-  // Convert to grayscale
-  cv.cvtColor(src, src, cv.COLOR_RGB2GRAY, 0);
-
-
-  const step3 = src.clone();
-  // cv.blur(src, src, new cv.Size(7, 7));
-
+  
   // Detect white regions (?)
   let M1 = cv.Mat.ones(9, 9, cv.CV_8U);
   let anchor = new cv.Point(-1, -1);
@@ -55,12 +52,25 @@ export function getContours(img, imgBig, ratio) {
       cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
   cv.dilate(src, src, cv.Mat.ones(9, 9, cv.CV_8U), anchor, 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
 
-  
+
+  // cv.medianBlur(src, src, 5);
+
+
+  const step3 = src.clone();
+  // cv.blur(src, src, new cv.Size(7, 7));
+
+
+  cv.dilate(src, src, kernel, new Point(-1, -1), 2);
+  cv.erode(src, src, kernel, new Point(-1, -1), 1);
+
   // Enhance the contrast of the image
   // cv.convertScaleAbs(src, src, 1.9, 0);
   
   // Canny edge detection
   cv.Canny(src, src, 50, 100, 3, false);
+
+  cv.dilate(src, src, kernel, new Point(-1, -1), 2);
+  cv.erode(src, src, kernel, new Point(-1, -1), 1);
 
 
   // Find all contours
@@ -92,7 +102,7 @@ export function getContours(img, imgBig, ratio) {
 
     // Only keep contours that have 4 corners
     contour.approx = new cv.Mat();
-    cv.approxPolyDP(contour.contour, contour.approx, 0.02 * contour.perimiterSize, true);
+    cv.approxPolyDP(contour.contour, contour.approx, 0.03 * contour.perimiterSize, true);
     // if the contour does not have 4 corners, it is not a rectangle
     // we can not just apply the perspective transform based on the these cases
     if (contour.approx.rows > 3 && contour.approx.rows < 10) {
@@ -134,41 +144,75 @@ export function getContours(img, imgBig, ratio) {
     // It can work when the corners are not equal to 4.
     // Following code is working when the detected contour is a rectangle aka. 4 corners.
 
-    let corner1 = new cv.Point(contour.approx.data32S[0], contour.approx.data32S[1]);
-    let corner2 = new cv.Point(contour.approx.data32S[2], contour.approx.data32S[3]);
-    let corner3 = new cv.Point(contour.approx.data32S[4], contour.approx.data32S[5]);
-    let corner4 = new cv.Point(contour.approx.data32S[6], contour.approx.data32S[7]);
+    // let corner1 = new cv.Point(contour.approx.data32S[0], contour.approx.data32S[1]);
+    // let corner2 = new cv.Point(contour.approx.data32S[2], contour.approx.data32S[3]);
+    // let corner3 = new cv.Point(contour.approx.data32S[4], contour.approx.data32S[5]);
+    // let corner4 = new cv.Point(contour.approx.data32S[6], contour.approx.data32S[7]);
   
     //Order the corners
-    let cornerArray = [{ corner: corner1 }, { corner: corner2 }, { corner: corner3 }, { corner: corner4 }];
+    // let cornerArray = [{ corner: corner1 }, { corner: corner2 }, { corner: corner3 }, { corner: corner4 }];
+    let cornerArray = [];
+    for (let i = 0; i < contour.approx.rows; ++i) {
+      let point = new cv.Point(...contour.approx.data32S.slice(i * 2, i * 2 + 2));
+      point.x = point.x / ratio;
+      point.y = point.y / ratio;
+      cornerArray.push({ corner: point });
+    }
     //Sort by Y position (to get top-down)
-    cornerArray.sort((item1, item2) => { return (item1.corner.y < item2.corner.y) ? -1 : (item1.corner.y > item2.corner.y) ? 1 : 0; }).slice(0, 5);
-    
+    // cornerArray.sort((item1, item2) => { return (item1.corner.y < item2.corner.y) ? -1 : (item1.corner.y > item2.corner.y) ? 1 : 0; }).slice(0, 5);
+    // cornerArray.sort((a, b) => a.corner.y - b.corner.y || a.corner.x - b.corner.x);
+    // console.log(cornerArray);
+
     // Transform the image back to the original perspective
     // TODO: Add a Homography to the image
     // TODO: add frame for edge detection when picture is cut
-    for (let i = 0; i < cornerArray.length; i++) {
-      cornerArray[i].corner.x = cornerArray[i].corner.x / ratio;
-      cornerArray[i].corner.y = cornerArray[i].corner.y / ratio;
-    }
 
-    //Determine left/right based on x position of top and bottom 2
-    let tl = cornerArray[0].corner.x < cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
-    let tr = cornerArray[0].corner.x > cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
-    let bl = cornerArray[2].corner.x < cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
-    let br = cornerArray[2].corner.x > cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
+    // Determine left/right based on x position of top and bottom 2
+    // let corArray = [];
+    // for (let i = 0; i < cornerArray.length; i++) {
+    //   corArray.push(cornerArray[i].x);
+    //   corArray.push(cornerArray[i].y);
+    // }
 
-    //Calculate the max width/height
-    let widthBottom = Math.hypot(br.corner.x - bl.corner.x, br.corner.y - bl.corner.y);
-    let widthTop = Math.hypot(tr.corner.x - tl.corner.x, tr.corner.y - tl.corner.y);
-    let heightRight = Math.hypot(tr.corner.x - br.corner.x, tr.corner.y - br.corner.y);
-    let heightLeft = Math.hypot(tl.corner.x - bl.corner.x, tr.corner.y - bl.corner.y);
-    let theWidth = Math.max(widthBottom, widthTop);
-    let theHeight = Math.max(heightRight, heightLeft);
+    let margin = 0;
+
+    let maxRight = cornerArray.sort((a, b) => b.corner.x - a.corner.x)[0];
+    let maxLeft = cornerArray.sort((a, b) => a.corner.x - b.corner.x)[0];
+    let maxTop = cornerArray.sort((a, b) => a.corner.y - b.corner.y)[0];
+    let maxBottom = cornerArray.sort((a, b) => b.corner.y - a.corner.y)[0];
+
+    let theWidth = maxRight - maxLeft;
+    let theHeight = maxBottom - maxTop;
+    // console.log('CORNERS', top, bottom, left, right);
+
+    // let maxLeft = Math.max(left.corner.x, right.corner.x);
+    // let maxRight = ;
+    // let maxTop = ;
+    // let maxBottom = ;
+
+    console.log('CORNERS maxleft', maxLeft, maxRight, maxTop, maxBottom);
+
+    // Get the width and height of the contour
+    // let theWidth = Math.sqrt(Math.pow(right.x - left.x, 2) + Math.pow(right.y - left.y, 2));
+    // let theHeight = Math.sqrt(Math.pow(top.x - bottom.x, 2) + Math.pow(top.y - bottom.y, 2));
+
+    // let tl = cornerArray[0].corner.x < cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
+    // let tr = cornerArray[0].corner.x > cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
+    // let bl = cornerArray[2].corner.x < cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
+    // let br = cornerArray[2].corner.x > cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
+
+    // //Calculate the max width/height
+    // let widthBottom = Math.hypot(br.corner.x - bl.corner.x, br.corner.y - bl.corner.y);
+    // let widthTop = Math.hypot(tr.corner.x - tl.corner.x, tr.corner.y - tl.corner.y);
+    // let heightRight = Math.hypot(tr.corner.x - br.corner.x, tr.corner.y - br.corner.y);
+    // let heightLeft = Math.hypot(tl.corner.x - bl.corner.x, tr.corner.y - bl.corner.y);
+    // let theWidth = Math.max(widthBottom, widthTop);
+    // let theHeight = Math.max(heightRight, heightLeft);
   
     //Transform!
+    // let margin = 0;
     let finalDestCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, theWidth - 1, 0, theWidth - 1, theHeight - 1, 0, theHeight - 1]); //
-    let srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.corner.x, tl.corner.y, tr.corner.x, tr.corner.y, br.corner.x, br.corner.y, bl.corner.x, bl.corner.y]);
+    let srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [left.x, left.y, right.x, right.y, top.x, top.y, bottom.x, bottom.y]);
     let dsize = new cv.Size(theWidth, theHeight);
     let M2 = cv.getPerspectiveTransform(srcCoords, finalDestCoords)
     cv.warpPerspective(imgBig, dst, M2, dsize, cv.INTER_LINEAR, cv.BORDER_REPLICATE, new cv.Scalar());
