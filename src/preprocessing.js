@@ -13,6 +13,79 @@ export class SortableContour {
   }
 }
 
+// get the distance from the point to the line
+function getDistanceFromPointToLine(x, y, x1, y1, x2, y2) {
+  var A = x - x1;
+  var B = y - y1;
+  var C = x2 - x1;
+  var D = y2 - y1;
+
+  var dot = A * C + B * D;
+  var len_sq = C * C + D * D;
+  var param = -1;
+  if (len_sq != 0) //in case of 0 length line
+      param = dot / len_sq;
+
+  var xx, yy;
+
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  }
+  else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  }
+  else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+
+  var dx = x - xx;
+  var dy = y - yy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+// Need to fix this function
+// project the point to the line
+function projectPointOnLine(point, line) {
+  // get the vector of the line
+  let lineVector = {
+    x: line.end.x - line.start.x,
+    y: line.end.y - line.start.y
+  };
+
+  // get the vector from the start of the line to the point
+  let pointVector = {
+    x: point.x - line.start.x,
+    y: point.y - line.start.y
+  };
+
+  // project the point vector onto the line vector
+  let t = (pointVector.x * lineVector.x + pointVector.y * lineVector.y) / (lineVector.x * lineVector.x + lineVector.y * lineVector.y);
+
+  // get the projected point
+  let projectedPoint = {
+    x: line.start.x + lineVector.x * t,
+    y: line.start.y + lineVector.y * t
+  };
+
+  return projectedPoint;
+}
+
+// find the nearest line for each point
+function getNearestLine(point, lines) {
+  let minDistance = Number.MAX_VALUE;
+  let minLine = null;
+  for (let line of lines) {
+    let distance = getDistanceFromPointToLine(point.x, point.y, line.start.x, line.start.y, line.end.x,line.end.y);
+    if (distance < minDistance) {
+      minDistance = distance;
+      minLine = line;
+    }
+  }
+  return minLine;
+}
+
 /*
  *@param {cv.Mat} img - input image with reduced size
  *@param {cv.Mat} imgBig - input image (original size)
@@ -27,14 +100,16 @@ export function getContours(img, imgBig, ratio) {
 
   // Convert to grayscale
   cv.cvtColor(src, src, cv.COLOR_RGB2GRAY, 0);
-
-  let s = new cv.Scalar(0, 0, 0, 100);
-  let dst = new cv.Mat();
-  const size = 15;
-  cv.copyMakeBorder(src, dst, size, size, size, size, cv.BORDER_CONSTANT, s);
-  src = dst.clone();
+  
+  // // add a frame to the image
+  // let s = new cv.Scalar(0, 0, 0, 100);
+  // let dst = new cv.Mat();
+  // const size = 15;
+  // cv.copyMakeBorder(src, dst, size, size, size, size, cv.BORDER_CONSTANT, s);
+  // src = dst.clone();
 
   const step1 = src.clone();
+  // let step4 = new cv.Mat();
 
   // Apply blur
   const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
@@ -67,10 +142,10 @@ export function getContours(img, imgBig, ratio) {
   // cv.convertScaleAbs(src, src, 1.9, 0);
   
   // Canny edge detection
-  cv.Canny(src, src, 50, 100, 3, false);
+  cv.Canny(src, src, 50, 100, 3, true);
 
   cv.dilate(src, src, kernel, new Point(-1, -1), 2);
-  cv.erode(src, src, kernel, new Point(-1, -1), 1);
+  // cv.erode(src, src, kernel, new Point(-1, -1), 1);
 
 
   // Find all contours
@@ -102,7 +177,7 @@ export function getContours(img, imgBig, ratio) {
 
     // Only keep contours that have 4 corners
     contour.approx = new cv.Mat();
-    cv.approxPolyDP(contour.contour, contour.approx, 0.03 * contour.perimiterSize, true);
+    cv.approxPolyDP(contour.contour, contour.approx, 0.02 * contour.perimiterSize, true);
     // if the contour does not have 4 corners, it is not a rectangle
     // we can not just apply the perspective transform based on the these cases
     if (contour.approx.rows > 3 && contour.approx.rows < 10) {
@@ -114,40 +189,6 @@ export function getContours(img, imgBig, ratio) {
     let dst = new cv.Mat();
     
     // TODO: incorrect? needs refactoring
-
-    // Get contour corners
-    // let corners = []; the length of this array is not euqal to 4
-    // for (let i = 0; i < contour.approx.rows; ++i) {
-    //   let point = new cv.Point(...contour.approx.data32S.slice(i * 2, i * 2 + 2));
-    //   corners.push(point);
-    // }
-
-    // // Sort corners
-    // let top = corners.sort((a, b) => a.y - b.y)[0];
-    // let bottom = corners.sort((a, b) => b.y - a.y)[0];
-    // let left = corners.sort((a, b) => a.x - b.x)[0];
-    // let right = corners.sort((a, b) => b.x - a.x)[0];
-
-    // // Get the width and height of the contour
-    // let width = Math.sqrt(Math.pow(right.x - left.x, 2) + Math.pow(right.y - left.y, 2));
-    // let height = Math.sqrt(Math.pow(top.x - bottom.x, 2) + Math.pow(top.y - bottom.y, 2));
-
-    // // Transform
-    // let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [left.x, left.y, right.x, right.y, top.x, top.y, bottom.x, bottom.y]);
-    // let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, width, 0, 0, height, width, height]);
-    // let dsize = new cv.Size(width, height);
-    // let M = cv.getPerspectiveTransform(srcTri, dstTri);
-    // cv.warpPerspective(img, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-    
-    // FIXME: this is ugly but the above code is broken
-    // I need a better way to get the corners of the contour to apply the perspective transform
-    // It can work when the corners are not equal to 4.
-    // Following code is working when the detected contour is a rectangle aka. 4 corners.
-
-    // let corner1 = new cv.Point(contour.approx.data32S[0], contour.approx.data32S[1]);
-    // let corner2 = new cv.Point(contour.approx.data32S[2], contour.approx.data32S[3]);
-    // let corner3 = new cv.Point(contour.approx.data32S[4], contour.approx.data32S[5]);
-    // let corner4 = new cv.Point(contour.approx.data32S[6], contour.approx.data32S[7]);
   
     //Order the corners
     // let cornerArray = [{ corner: corner1 }, { corner: corner2 }, { corner: corner3 }, { corner: corner4 }];
@@ -158,63 +199,74 @@ export function getContours(img, imgBig, ratio) {
       point.y = point.y / ratio;
       cornerArray.push({ corner: point });
     }
-    //Sort by Y position (to get top-down)
-    // cornerArray.sort((item1, item2) => { return (item1.corner.y < item2.corner.y) ? -1 : (item1.corner.y > item2.corner.y) ? 1 : 0; }).slice(0, 5);
-    // cornerArray.sort((a, b) => a.corner.y - b.corner.y || a.corner.x - b.corner.x);
-    // console.log(cornerArray);
 
-    // Transform the image back to the original perspective
-    // TODO: Add a Homography to the image
-    // TODO: add frame for edge detection when picture is cut
+// TODO: - Extend the contour before warpPerspective to avoid information loss DONE
+// TODO: - Apply another contour recognition with polynomialDP, find the 4 new corners, apply a projection on the remaining points on their nearest axis to find dstCoordinates
+// TODO: - Apply a homography with srcCoordinates as the original coordinates of the polynomialDP and dstCoordinates as the projections 
 
-    // Determine left/right based on x position of top and bottom 2
-    // let corArray = [];
-    // for (let i = 0; i < cornerArray.length; i++) {
-    //   corArray.push(cornerArray[i].x);
-    //   corArray.push(cornerArray[i].y);
-    // }
 
-    let margin = 0;
+    let margin = 100;
 
-    let maxRight = cornerArray.sort((a, b) => b.corner.x - a.corner.x)[0];
-    let maxLeft = cornerArray.sort((a, b) => a.corner.x - b.corner.x)[0];
-    let maxTop = cornerArray.sort((a, b) => a.corner.y - b.corner.y)[0];
-    let maxBottom = cornerArray.sort((a, b) => b.corner.y - a.corner.y)[0];
+    let maxRight = cornerArray.sort((a, b) => b.corner.x - a.corner.x)[0].corner.x;
+    let maxLeft = cornerArray.sort((a, b) => a.corner.x - b.corner.x)[0].corner.x;
+    let maxTop = cornerArray.sort((a, b) => a.corner.y - b.corner.y)[0].corner.y;
+    let maxBottom = cornerArray.sort((a, b) => b.corner.y - a.corner.y)[0].corner.y;
 
     let theWidth = maxRight - maxLeft;
     let theHeight = maxBottom - maxTop;
-    // console.log('CORNERS', top, bottom, left, right);
 
-    // let maxLeft = Math.max(left.corner.x, right.corner.x);
-    // let maxRight = ;
-    // let maxTop = ;
-    // let maxBottom = ;
+    // constract the new rectangle for the projection
+    let tl = new cv.Point(maxLeft - margin, maxTop - margin); // top left 00
+    let tr = new cv.Point(maxRight + margin, maxTop - margin); // top right 01
+    let bl = new cv.Point(maxLeft - margin, maxBottom + margin); // bottom left 10
+    let br = new cv.Point(maxRight + margin, maxBottom + margin); // bottom right 11
 
-    console.log('CORNERS maxleft', maxLeft, maxRight, maxTop, maxBottom);
+    let rect = new cv.Rect(tl.x, tl.y, theWidth, theHeight);
 
-    // Get the width and height of the contour
-    // let theWidth = Math.sqrt(Math.pow(right.x - left.x, 2) + Math.pow(right.y - left.y, 2));
-    // let theHeight = Math.sqrt(Math.pow(top.x - bottom.x, 2) + Math.pow(top.y - bottom.y, 2));
+    console.log(rect);
 
-    // let tl = cornerArray[0].corner.x < cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
-    // let tr = cornerArray[0].corner.x > cornerArray[1].corner.x ? cornerArray[0] : cornerArray[1];
-    // let bl = cornerArray[2].corner.x < cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
-    // let br = cornerArray[2].corner.x > cornerArray[3].corner.x ? cornerArray[2] : cornerArray[3];
+    // let subImg = imgBig.roi(rect);
 
-    // //Calculate the max width/height
-    // let widthBottom = Math.hypot(br.corner.x - bl.corner.x, br.corner.y - bl.corner.y);
-    // let widthTop = Math.hypot(tr.corner.x - tl.corner.x, tr.corner.y - tl.corner.y);
-    // let heightRight = Math.hypot(tr.corner.x - br.corner.x, tr.corner.y - br.corner.y);
-    // let heightLeft = Math.hypot(tl.corner.x - bl.corner.x, tr.corner.y - bl.corner.y);
-    // let theWidth = Math.max(widthBottom, widthTop);
-    // let theHeight = Math.max(heightRight, heightLeft);
+    // cv.imshow('subImg', subImg);
+
+    // step4 = subImg.clone();
+
+    // project all the points on the new rectangle
+    // for one point, find the nearest line in the rectangle and project the point to that line
+
+    let lines = [
+      { start: tl, end: tr },
+      { start: tr, end: br },
+      { start: br, end: bl },
+      { start: bl, end: tl }
+    ];
+
+    // find the nearest line for each point and project it on that line
+    let dstCoordinates = [];
+    for (let i = 0; i < cornerArray.length; ++i) {
+      let point = cornerArray[i].corner;
+      let nearestLine = getNearestLine(point, lines);
+      let projectedPoint = projectPointOnLine(point, nearestLine);
+      dstCoordinates.push(projectedPoint.x, projectedPoint.y);
+    }
+
+    // get the srcCoordinates
+    let srcCoordinates = [];
+    for (let i = 0; i < cornerArray.length; i++) {
+      srcCoordinates.push(cornerArray[i].corner.x, cornerArray[i].corner.y);
+    }
+
+    console.log("srcCoordinates", srcCoordinates);
+    console.log("dstCoordinates", dstCoordinates);
   
     //Transform!
-    // let margin = 0;
-    let finalDestCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, theWidth - 1, 0, theWidth - 1, theHeight - 1, 0, theHeight - 1]); //
-    let srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [left.x, left.y, right.x, right.y, top.x, top.y, bottom.x, bottom.y]);
+    // let finalDestCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, theWidth - 1, 0, theWidth - 1, theHeight - 1, 0, theHeight - 1]); //
+    let finalDestCoords = cv.matFromArray(dstCoordinates.length, 1, cv.CV_32FC2, dstCoordinates); //
+    // let srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+    let srcCoords = cv.matFromArray(srcCoordinates.length, 1, cv.CV_32FC2, srcCoordinates);
     let dsize = new cv.Size(theWidth, theHeight);
-    let M2 = cv.getPerspectiveTransform(srcCoords, finalDestCoords)
+    // let M2 = cv.getPerspectiveTransform(srcCoords, finalDestCoords)
+    let M2 = cv.findHomography(srcCoords, finalDestCoords, cv.RANSAC, 5);
     cv.warpPerspective(imgBig, dst, M2, dsize, cv.INTER_LINEAR, cv.BORDER_REPLICATE, new cv.Scalar());
     // obtain black and white scanner effect by thresholding
     cv.cvtColor(dst, dst, cv.COLOR_RGBA2GRAY, 0);
@@ -228,6 +280,7 @@ export function getContours(img, imgBig, ratio) {
     cvImageDataToBase64(step1),
     cvImageDataToBase64(step2),
     cvImageDataToBase64(step3),
+    // cvImageDataToBase64(step4),
     cvImageDataToBase64(src),
   ]
 
