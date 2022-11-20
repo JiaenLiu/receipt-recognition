@@ -205,25 +205,47 @@ export function getContours(img, imgBig, ratio) {
 // TODO: - Apply a homography with srcCoordinates as the original coordinates of the polynomialDP and dstCoordinates as the projections 
 
 
-    let margin = 100;
+    // let margin = 100;
 
-    let maxRight = cornerArray.sort((a, b) => b.corner.x - a.corner.x)[0].corner.x;
-    let maxLeft = cornerArray.sort((a, b) => a.corner.x - b.corner.x)[0].corner.x;
-    let maxTop = cornerArray.sort((a, b) => a.corner.y - b.corner.y)[0].corner.y;
-    let maxBottom = cornerArray.sort((a, b) => b.corner.y - a.corner.y)[0].corner.y;
+    // let maxRight = cornerArray.sort((a, b) => b.corner.x - a.corner.x)[0].corner.x;
+    // let maxLeft = cornerArray.sort((a, b) => a.corner.x - b.corner.x)[0].corner.x;
+    // let maxTop = cornerArray.sort((a, b) => a.corner.y - b.corner.y)[0].corner.y;
+    // let maxBottom = cornerArray.sort((a, b) => b.corner.y - a.corner.y)[0].corner.y;
 
-    let theWidth = maxRight - maxLeft;
-    let theHeight = maxBottom - maxTop;
+    // let theWidth = maxRight - maxLeft;
+    // let theHeight = maxBottom - maxTop;
+
+    let rotatedRect = cv.minAreaRect(contour.approx);
+
+    let vertices = cv.RotatedRect.points(rotatedRect);
+
+    for (let i = 0; i < vertices.length; ++i) {
+      let point = vertices[i];
+      point.x = point.x / ratio;
+      point.y = point.y / ratio;
+    }
+
+    console.log(rotatedRect);
+    console.log(vertices);
 
     // constract the new rectangle for the projection
-    let tl = new cv.Point(maxLeft - margin, maxTop - margin); // top left 00
-    let tr = new cv.Point(maxRight + margin, maxTop - margin); // top right 01
-    let bl = new cv.Point(maxLeft - margin, maxBottom + margin); // bottom left 10
-    let br = new cv.Point(maxRight + margin, maxBottom + margin); // bottom right 11
+    // let tl = new cv.Point(maxLeft - margin, maxTop - margin); // top left 00
+    // let tr = new cv.Point(maxRight + margin, maxTop - margin); // top right 01
+    // let bl = new cv.Point(maxLeft - margin, maxBottom + margin); // bottom left 10
+    // let br = new cv.Point(maxRight + margin, maxBottom + margin); // bottom right 11
 
-    let rect = new cv.Rect(tl.x, tl.y, theWidth, theHeight);
+    // Try without margin
+    let tl = vertices[0]; // top left 00
+    let tr = vertices[1]; // top right 01
+    let bl = vertices[2]; // bottom left 10
+    let br = vertices[3]; // bottom right 11
 
-    console.log(rect);
+    let theWidth = Math.hypot(tl.x - tr.x, tl.y - tr.y);
+    let theHeight = Math.hypot(tl.x - bl.x, tl.y - bl.y);
+
+    // let rect = new cv.Rect(tl.x, tl.y, theWidth, theHeight);
+
+    // console.log(rect);
 
     // let subImg = imgBig.roi(rect);
 
@@ -256,8 +278,8 @@ export function getContours(img, imgBig, ratio) {
       srcCoordinates.push(cornerArray[i].corner.x, cornerArray[i].corner.y);
     }
 
-    console.log("srcCoordinates", srcCoordinates);
-    console.log("dstCoordinates", dstCoordinates);
+    // console.log("srcCoordinates", srcCoordinates);
+    // console.log("dstCoordinates", dstCoordinates);
   
     //Transform!
     // let finalDestCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, theWidth - 1, 0, theWidth - 1, theHeight - 1, 0, theHeight - 1]); //
